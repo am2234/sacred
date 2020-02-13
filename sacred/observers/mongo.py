@@ -297,10 +297,20 @@ class MongoObserver(RunObserver):
         self.run_entry["resources"].append((filename, md5hash))
         self.save()
 
-    def artifact_event(self, name, filename, metadata=None, content_type=None):
+    def artifact_event(self, name, filename, metadata=None, content_type=None, overwrite=False):
+        run_id = self.run_entry["_id"]
+        db_filename = "artifact://{}/{}/{}".format(self.runs.name, run_id, name)
+
+        if overwrite:
+            other_artifacts = []
+            for artifact in self.run_entry["artifacts"]:
+                if artifact["name"] == name:
+                    self.fs.delete(artifact["file_id"])
+                else:
+                    other_artifacts.append(artifact)
+            self.run_entry["artifacts"] = other_artifacts
+
         with open(filename, "rb") as f:
-            run_id = self.run_entry["_id"]
-            db_filename = "artifact://{}/{}/{}".format(self.runs.name, run_id, name)
             if content_type is None:
                 content_type = self._try_to_detect_content_type(filename)
 

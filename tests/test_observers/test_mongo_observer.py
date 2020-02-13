@@ -473,6 +473,36 @@ def test_mongo_observer_artifact_event_metadata(mongo_obs, sample_run):
     assert db_run["artifacts"]
 
 
+def test_mongo_observer_artifact_overwriting(mongo_obs, sample_run):
+    """ Test that observer correctly overwrites artifact if option used"""
+    mongo_obs.started_event(**sample_run)
+
+    name = "mysetup"
+    mongo_obs.artifact_event(name, "setup.py", overwrite=True)
+    mongo_obs.artifact_event(name, "setup.cfg", overwrite=True)
+
+    files = [f for f in mongo_obs.fs.find({})]
+    assert len(files) == 1
+
+    db_run = mongo_obs.runs.find_one()
+    assert len(db_run["artifacts"]) == 1
+
+
+def test_mongo_observer_artifact_not_overwriting(mongo_obs, sample_run):
+    """ Test that observer does not overwrite artifact if option is False"""
+    mongo_obs.started_event(**sample_run)
+
+    name = "mysetup"
+    mongo_obs.artifact_event(name, "setup.py", overwrite=False)
+    mongo_obs.artifact_event(name, "setup.cfg", overwrite=False)
+
+    files = [f for f in mongo_obs.fs.find({})]
+    assert len(files) == 2
+
+    db_run = mongo_obs.runs.find_one()
+    assert len(db_run["artifacts"]) == 2
+
+
 def test_mongo_observer_created_with_prefix(mongo_obs_with_prefix):
     print("with_prefix_test")
     runs_collection = mongo_obs_with_prefix.runs

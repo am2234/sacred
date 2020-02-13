@@ -139,7 +139,7 @@ def test_run_artifact_event(run):
     content_type = "text/plain"
     run.add_artifact(f_name, name=name, metadata=metadata, content_type=content_type)
     observer.artifact_event.assert_called_with(
-        filename=f_name, name=name, metadata=metadata, content_type=content_type
+        filename=f_name, name=name, metadata=metadata, content_type=content_type, overwrite=False,
     )
     os.close(handle)
     os.remove(f_name)

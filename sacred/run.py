@@ -166,7 +166,7 @@ class Run:
         filename = os.path.abspath(filename)
         self._emit_resource_added(filename)
 
-    def add_artifact(self, filename, name=None, metadata=None, content_type=None):
+    def add_artifact(self, filename, name=None, metadata=None, content_type=None, overwrite=False):
         """Add a file as an artifact.
 
         In Sacred terminology an artifact is a file produced by the experiment
@@ -188,10 +188,13 @@ class Run:
         content_type: str, optional
             optionally attach a content-type to the artifact.
             This only has an effect when using the MongoObserver.
+        overwrite: bool, optional
+            if artifact with same name already exists, overwrite it.
+            Only supported by MongoObserver.
         """
         filename = os.path.abspath(filename)
         name = os.path.basename(filename) if name is None else name
-        self._emit_artifact_added(name, filename, metadata, content_type)
+        self._emit_artifact_added(name, filename, metadata, content_type, overwrite)
 
     def __call__(self, *args):
         r"""Start this run.
@@ -403,7 +406,7 @@ class Run:
         for observer in self.observers:
             self._safe_call(observer, "resource_event", filename=filename)
 
-    def _emit_artifact_added(self, name, filename, metadata, content_type):
+    def _emit_artifact_added(self, name, filename, metadata, content_type, overwrite):
         for observer in self.observers:
             self._safe_call(
                 observer,
@@ -412,6 +415,7 @@ class Run:
                 filename=filename,
                 metadata=metadata,
                 content_type=content_type,
+                overwrite=overwrite
             )
 
     def _safe_call(self, obs, method, **kwargs):
