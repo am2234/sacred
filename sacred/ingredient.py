@@ -24,11 +24,13 @@ __all__ = ("Ingredient",)
 
 
 def collect_repositories(sources):
-    return [
-        {"url": s.repo, "commit": s.commit, "dirty": s.is_dirty}
-        for s in sources
-        if s.repo
-    ]
+    repos = []
+    repo_urls = set()
+    for s in sources:
+        if s.repo and s.repo not in repo_urls:
+            repos.append({"url": s.repo, "commit": s.commit, "dirty": s.is_dirty})
+            repo_urls.add(s.repo)
+    return repos
 
 
 class Ingredient:
