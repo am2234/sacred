@@ -672,6 +672,77 @@ def get_sources_from_imported_modules(globs, base_path, save_git_info):
     )
 
 
+def get_module_path(obj):
+    if isinstance(obj, module):
+        return obj.__name__
+    elif hasattr(obj, "__module__"):
+        return obj.__module__
+    else:
+        return None
+
+
+def find_imported_modules_within_path(globs, base_path, sources):
+    found_modules = set(MODULE_BLACKLIST)
+
+    def recursive(glbs):
+        for key, glob in glbs.items():
+            if key == '__loader__':
+                continue
+
+            # Get module path for this object, if its a valid module/function
+            mod_path = get_module_path(glob)
+            if not mod_path or mod_path in found_modules:
+                continue
+
+            # New module!
+            found_modules.add(mod_path)
+
+            # Get actual module object
+            mod = sys.modules.get(mod_path)
+            if mod is None:
+                continue
+
+            # Check file is local source file
+            filename = mod.__file__
+            filename = Path(os.path.abspath(os.path.realpath(filename)))
+            experiment_path = Path(os.path.abspath(os.path.realpath(base_path)))
+            if experiment_path in filename.parents:
+                if sources:
+                    yield mod
+                for mod in recursive(mod.__dict__):
+                    yield mod
+            else:
+                if not sources:
+                    yield mod
+
+    for mod in recursive(globs):
+        yield mod
+
+
+def get_dependencies_from_imported_modules_recursive(globs, base_path):
+    mod_names = {mod.__name__.split('.')[0]
+                 for mod in find_imported_modules_within_path(globs, base_path, False)}
+
+    dependencies = set()
+    for mod_name in mod_names:
+        if mod_name.startswith('_'):
+            continue
+        try:
+            pdep = PackageDependency.create(sys.modules.get(mod_name))
+            if pdep.version is not None:
+                dependencies.add(pdep)
+        except AttributeError:
+            pass
+    return dependencies
+
+
+def get_sources_from_imported_modules_recursive(globs, base_path, save_git_info):
+    return {
+        Source.create(mod.__file__, save_git_info)
+        for mod in find_imported_modules_within_path(globs, base_path, True)
+    }
+
+
 def get_sources_from_local_dir(globs, base_path, save_git_info):
     return {
         Source.create(filename, save_git_info)
@@ -699,6 +770,7 @@ def get_dependencies_from_pkg(globs, base_path):
 source_discovery_strategies = {
     "none": lambda globs, path: set(),
     "imported": get_sources_from_imported_modules,
+    "imported_recursive": get_sources_from_imported_modules_recursive,
     "sys": get_sources_from_sys_modules,
     "dir": get_sources_from_local_dir,
 }
@@ -706,6 +778,7 @@ source_discovery_strategies = {
 dependency_discovery_strategies = {
     "none": lambda globs, path: set(),
     "imported": get_dependencies_from_imported_modules,
+    "imported_recursive": get_dependencies_from_imported_modules_recursive,
     "sys": get_dependencies_from_sys_modules,
     "pkg": get_dependencies_from_pkg,
 }
